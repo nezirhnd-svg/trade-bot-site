@@ -1,93 +1,72 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <title>Trade AI - Canlı Sinyal</title>
-  <style>
-    body { background: #0d1117; color: white; text-align: center; font-family: 'Segoe UI', sans-serif; margin: 0; }
-    h1 { margin-top: 20px; color: #58a6ff; }
-    .signal { font-size: 50px; font-weight: bold; margin: 20px; padding: 20px; }
-    .wait { color: #888; }
-    .long { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
-    .short { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
-
-    /* 📦 POZİSYON KUTUSU */
-    #box {
-      margin: 20px auto;
-      width: 260px;
-      padding: 15px;
-      border-radius: 12px;
-      border: 2px solid #333;
-      background: #161b22;
-      font-size: 16px;
-      text-align: left;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade AI Canlı Monitor</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #0f0f0f; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #header { padding: 20px; text-align: center; }
+        #status { font-size: 50px; font-weight: bold; margin-top: 10px; }
+        .LONG { color: #00ff00; }
+        .SHORT { color: #ff0000; }
+        .BEKLENİYOR { color: #888; font-size: 20px !important; }
+    </style>
 </head>
-
 <body>
 
-<h1>🔥 Trade AI Live Monitor</h1>
+    <div id="header">
+        <h1 style="color: #4a90e2;">🔥 Trade AI Live Monitor</h1>
+        <div id="status" class="BEKLENİYOR">YÜKLENİYOR...</div>
+    </div>
 
-<div id="tradingview_widget"></div>
-
-<div class="signal wait" id="signal-display">BEKLENİYOR...</div>
-
-<div id="box">Sistem izleniyor...</div>
-
-<script src="https://s3.tradingview.com/tv.js"></script>
-<script>
-  // 1. TradingView Widget
-  new TradingView.widget({
-    "container_id": "tradingview_widget",
-    "width": "100%", "height": 400,
-    "symbol": "BINANCE:BTCUSDT",
-    "interval": "15",
-    "theme": "dark",
-    "style": "1",
-    "locale": "tr"
-  });
-
-  // 2. FIREBASE BAĞLANTISI (Sitenin "beyni" burası)
-  // Buradaki URL'i kendi Firebase URL'inle değiştirdiğinden emin ol!
-  const FIREBASE_URL = "https://hnd-ai-default-rtdb.europe-west1.firebasebasedatabase.app/signal/status.json";
-
-  async function updateSignal() {
-    try {
-      const response = await fetch(FIREBASE_URL);
-      const data = await response.json();
-      
-      const el = document.getElementById("signal-display");
-      const box = document.getElementById("box");
-      
-      // Gelen veriye göre ekranı güncelle
-      if (data === "LONG") {
-        el.innerText = "LONG POZİSYON";
-        el.className = "signal long";
-        box.style.border = "2px solid #00ff00";
-        box.innerHTML = "🟢 <b>ALIM SİNYALİ</b><br>Durum: Aktif";
-      } 
-      else if (data === "SHORT") {
-        el.innerText = "SHORT POZİSYON";
-        el.className = "signal short";
-        box.style.border = "2px solid #ff0000";
-        box.innerHTML = "🔴 <b>SATIM SİNYALİ</b><br>Durum: Aktif";
-      } 
-      else {
-        el.innerText = "BEKLEMEDE (WAIT)";
-        el.className = "signal wait";
-        box.style.border = "2px solid #333";
-        box.innerHTML = "⏳ Sistem analiz yapıyor...";
+    <div class="tradingview-widget-container" style="height:500px; width:95%; margin-bottom: 20px;">
+      <div class="tradingview-widget-container__widget" style="height:100%; width:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {
+        "symbol": "BINANCE:BTCUSDT",
+        "interval": "15",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "autosize": true
       }
-    } catch (e) {
-      console.error("Bağlantı hatası:", e);
-    }
-  }
+      </script>
+    </div>
 
-  // Her 3 saniyede bir Firebase'i kontrol et
-  setInterval(updateSignal, 3000);
-  updateSignal();
-</script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
+        // --- BURAYA KENDİ CONFIG BİLGİNİ YAPIŞTIR ---
+        const firebaseConfig = {
+            apiKey: "BURAYA_API_KEY",
+            authDomain: "BURAYA_AUTH",
+            projectId: "BURAYA_PROJECT_ID",
+            storageBucket: "BURAYA_STORAGE",
+            messagingSenderId: "BURAYA_SENDER_ID",
+            appId: "BURAYA_APP_ID",
+            databaseURL: "BURAYA_DATABASE_URL"
+        };
+        // -------------------------------------------
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // Veriyi 'status' üzerinden okuyoruz
+        const statusRef = ref(db, 'status');
+        const statusElement = document.getElementById('status');
+
+        onValue(statusRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                statusElement.innerText = data;
+                statusElement.className = data; // Class'ı LONG veya SHORT yapar
+            } else {
+                statusElement.innerText = "BEKLENİYOR...";
+                statusElement.className = "BEKLENİYOR";
+            }
+        });
+    </script>
 </body>
 </html>

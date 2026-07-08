@@ -2,38 +2,63 @@
 <html>
 <head>
   <title>Trade AI</title>
+
   <style>
     body {
       background: #0d1117;
       color: white;
       text-align: center;
       font-family: Arial;
+      margin: 0;
     }
-    h1 {
-      margin-top: 20px;
-    }
+
+    h1 { margin-top: 20px; }
+
     .signal {
       font-size: 40px;
       margin: 20px;
     }
+
     .long { color: lime; }
     .short { color: red; }
+
+    #chart {
+      position: relative;
+    }
+
+    /* 📦 POSITION BOX */
+    #box {
+      position: absolute;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 260px;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      z-index: 999;
+      text-align: left;
+    }
   </style>
 </head>
 
 <body>
 
-<h1>🔥 Trade AI Signal</h1>
+<h1>🔥 Trade AI Signal V9</h1>
 
 <div id="chart"></div>
 
-<div class="signal long" id="signal">
-LONG
-</div>
+<div class="signal" id="signal">WAIT</div>
+
+<div id="info"></div>
+
+<div id="box">WAIT</div>
 
 <script src="https://s3.tradingview.com/tv.js"></script>
 
 <script>
+
+// 📊 TradingView
 new TradingView.widget({
   "width": "100%",
   "height": 500,
@@ -43,34 +68,8 @@ new TradingView.widget({
   "style": "1",
   "locale": "tr"
 });
-</script>
 
-</body>
-</html>
-<script>
-function randomSignal() {
-  let signal = Math.random() > 0.5 ? "LONG" : "SHORT";
-  let el = document.getElementById("signal");
-
-  el.innerText = signal;
-
-  if(signal === "LONG"){
-    el.className = "signal long";
-  } else {
-    el.className = "signal short";
-  }
-}
-
-// 3 saniyede bir değişsin
-
-</script>
-<script>
-async function getData() {
-  let res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=100");
-  let data = await res.json();
-  return data.map(c => parseFloat(c[4])); // kapanış fiyatı
-}
-
+// 📈 EMA
 function ema(prices, period) {
   let k = 2 / (period + 1);
   let emaArray = [prices[0]];
@@ -80,68 +79,7 @@ function ema(prices, period) {
   return emaArray;
 }
 
-function rsi(prices, period = 14) {
-  let gains = 0, losses = 0;
-
-  for (let i = 1; i <= period; i++) {
-    let diff = prices[i] - prices[i - 1];
-    if (diff >= 0) gains += diff;
-    else losses -= diff;
-  }
-
-  let rs = gains / losses;
-  return 100 - (100 / (1 + rs));
-}
-
-async function generateSignal() {
-  let prices = await getData();
-
-  let ema50 = ema(prices, 50);
-  let lastPrice = prices[prices.length - 1];
-  let lastEma = ema50[ema50.length - 1];
-  let lastRsi = rsi(prices);
-
-  let signal = "WAIT";
-
-  if (lastPrice > lastEma && lastRsi < 30) {
-    signal = "LONG";
-  } else if (lastPrice < lastEma && lastRsi > 70) {
-    signal = "SHORT";
-  }
-
-  let el = document.getElementById("signal");
-  el.innerText = signal;
-
-  if(signal === "LONG"){
-    el.className = "signal long";
-  } else if(signal === "SHORT"){
-    el.className = "signal short";
-  } else {
-    el.className = "signal";
-  }
-}
-
-// her 10 saniyede güncelle
-setInterval(generateSignal, 10000);
-generateSignal();
-</script>
-<div id="info"></div>
-<script>
-async function getData() {
-  let res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=200");
-  let data = await res.json();
-  return data.map(c => parseFloat(c[4]));
-}
-
-function ema(prices, period) {
-  let k = 2 / (period + 1);
-  let emaArray = [prices[0]];
-  for (let i = 1; i < prices.length; i++) {
-    emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
-  }
-  return emaArray;
-}
-
+// 📉 RSI
 function rsi(prices, period = 14) {
   let gains = 0, losses = 0;
   for (let i = 1; i <= period; i++) {
@@ -153,170 +91,7 @@ function rsi(prices, period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
-async function generateSignal() {
-  let prices = await getData();
-
-  let ema50 = ema(prices, 50);
-  let ema200 = ema(prices, 200);
-
-  let lastPrice = prices[prices.length - 1];
-  let lastEma50 = ema50[ema50.length - 1];
-  let lastEma200 = ema200[ema200.length - 1];
-  let lastRsi = rsi(prices);
-
-  let signal = "WAIT";
-  let entry = lastPrice;
-  let sl = 0, tp1 = 0, tp2 = 0;
-
-  // TREND FİLTRESİ
-  let trendUp = lastEma50 > lastEma200;
-  let trendDown = lastEma50 < lastEma200;
-
-  // LONG
-  if (trendUp && lastPrice > lastEma50 && lastRsi < 35) {
-    signal = "LONG";
-    sl = entry * 0.98;
-    tp1 = entry * 1.02;
-    tp2 = entry * 1.04;
-  }
-
-  // SHORT
-  else if (trendDown && lastPrice < lastEma50 && lastRsi > 65) {
-    signal = "SHORT";
-    sl = entry * 1.02;
-    tp1 = entry * 0.98;
-    tp2 = entry * 0.96;
-  }
-
-  let el = document.getElementById("signal");
-  let info = document.getElementById("info");
-
-  el.innerText = signal;
-
-  if(signal === "LONG"){
-    el.className = "signal long";
-  } else if(signal === "SHORT"){
-    el.className = "signal short";
-  } else {
-    el.className = "signal";
-  }
-
-  info.innerHTML = `
-    Entry: ${entry.toFixed(2)} <br>
-    SL: ${sl.toFixed(2)} <br>
-    TP1: ${tp1.toFixed(2)} <br>
-    TP2: ${tp2.toFixed(2)} <br>
-    RSI: ${lastRsi.toFixed(2)}
-  `;
-}
-
-setInterval(generateSignal, 10000);
-generateSignal();
-</script>
-<script>
-async function getData() {
-  let res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=200");
-  let data = await res.json();
-  return data.map(c => parseFloat(c[4]));
-}
-
-function ema(prices, period) {
-  let k = 2 / (period + 1);
-  let emaArray = [prices[0]];
-  for (let i = 1; i < prices.length; i++) {
-    emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
-  }
-  return emaArray;
-}
-
-function rsi(prices, period = 14) {
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    let diff = prices[i] - prices[i - 1];
-    if (diff >= 0) gains += diff;
-    else losses -= diff;
-  }
-  let rs = gains / losses;
-  return 100 - (100 / (1 + rs));
-}
-
-async function generateSignal() {
-  let prices = await getData();
-
-  let ema9 = ema(prices, 9);
-  let ema20 = ema(prices, 20);
-  let ema50 = ema(prices, 50);
-  let ema200 = ema(prices, 200);
-
-  let lastPrice = prices[prices.length - 1];
-  let lastEma9 = ema9[ema9.length - 1];
-  let lastEma20 = ema20[ema20.length - 1];
-  let lastEma50 = ema50[ema50.length - 1];
-  let lastEma200 = ema200[ema200.length - 1];
-
-  let lastRsi = rsi(prices);
-
-  let signal = "WAIT";
-  let score = 0;
-
-  // TREND
-  let trendUp = lastEma50 > lastEma200;
-  let trendDown = lastEma50 < lastEma200;
-
-  // MOMENTUM
-  let momentumUp = lastEma9 > lastEma20;
-  let momentumDown = lastEma9 < lastEma20;
-
-  // LONG
-  if (trendUp) score += 1;
-  if (momentumUp) score += 1;
-  if (lastPrice > lastEma50) score += 1;
-  if (lastRsi > 40 && lastRsi < 60) score += 1;
-
-  if (score >= 3) signal = "LONG";
-
-  // SHORT
-  score = 0;
-  if (trendDown) score += 1;
-  if (momentumDown) score += 1;
-  if (lastPrice < lastEma50) score += 1;
-  if (lastRsi > 40 && lastRsi < 60) score += 1;
-
-  if (score >= 3) signal = "SHORT";
-
-  // ENTRY / SL / TP
-  let entry = lastPrice;
-  let sl = signal === "LONG" ? entry * 0.98 : entry * 1.02;
-  let tp1 = signal === "LONG" ? entry * 1.02 : entry * 0.98;
-  let tp2 = signal === "LONG" ? entry * 1.04 : entry * 0.96;
-
-  let el = document.getElementById("signal");
-  let info = document.getElementById("info");
-
-  el.innerText = signal;
-
-  if(signal === "LONG"){
-    el.className = "signal long";
-  } else if(signal === "SHORT"){
-    el.className = "signal short";
-  } else {
-    el.className = "signal";
-  }
-
-  info.innerHTML = `
-    Score: ${score}/4 <br>
-    Entry: ${entry.toFixed(2)} <br>
-    SL: ${sl.toFixed(2)} <br>
-    TP1: ${tp1.toFixed(2)} <br>
-    TP2: ${tp2.toFixed(2)} <br>
-    RSI: ${lastRsi.toFixed(2)}
-  `;
-}
-
-setInterval(generateSignal, 10000);
-generateSignal();
-</script>
-<script>
+// 🧠 STRUCTURE
 function getStructure(prices) {
   let highs = [];
   let lows = [];
@@ -332,4 +107,120 @@ function getStructure(prices) {
 
   return { highs, lows };
 }
+
+// 🚀 ANA SİSTEM
+async function generateSignal() {
+
+  let res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=200");
+  let data = await res.json();
+  let prices = data.map(c => parseFloat(c[4]));
+
+  let ema9 = ema(prices, 9);
+  let ema20 = ema(prices, 20);
+  let ema50 = ema(prices, 50);
+  let ema200 = ema(prices, 200);
+
+  let lastPrice = prices.at(-1);
+  let lastEma9 = ema9.at(-1);
+  let lastEma20 = ema20.at(-1);
+  let lastEma50 = ema50.at(-1);
+  let lastEma200 = ema200.at(-1);
+
+  let lastRsi = rsi(prices);
+
+  let structure = getStructure(prices);
+
+  let lastHigh = structure.highs.at(-1);
+  let prevHigh = structure.highs.at(-2);
+  let lastLow = structure.lows.at(-1);
+  let prevLow = structure.lows.at(-2);
+
+  let bosUp = lastHigh > prevHigh;
+  let bosDown = lastLow < prevLow;
+
+  let trendUp = lastEma50 > lastEma200;
+  let trendDown = lastEma50 < lastEma200;
+
+  let momentumUp = lastEma9 > lastEma20;
+  let momentumDown = lastEma9 < lastEma20;
+
+  let signal = "WAIT";
+  let score = 0;
+
+  // LONG
+  if (trendUp) score++;
+  if (momentumUp) score++;
+  if (lastPrice > lastEma50) score++;
+  if (lastRsi > 40 && lastRsi < 60) score++;
+  if (bosUp) score++;
+
+  if (score >= 4) signal = "LONG";
+
+  // SHORT
+  score = 0;
+  if (trendDown) score++;
+  if (momentumDown) score++;
+  if (lastPrice < lastEma50) score++;
+  if (lastRsi > 40 && lastRsi < 60) score++;
+  if (bosDown) score++;
+
+  if (score >= 4) signal = "SHORT";
+
+  let entry = lastPrice;
+  let sl = signal === "LONG" ? entry * 0.98 : entry * 1.02;
+  let tp1 = signal === "LONG" ? entry * 1.02 : entry * 0.98;
+  let tp2 = signal === "LONG" ? entry * 1.04 : entry * 0.96;
+
+  let el = document.getElementById("signal");
+  let info = document.getElementById("info");
+  let box = document.getElementById("box");
+
+  el.innerText = signal;
+
+  if(signal === "LONG"){
+    el.className = "signal long";
+
+    box.style.border = "2px solid lime";
+    box.style.background = "rgba(0,255,0,0.2)";
+    box.innerHTML = `
+      🟢 LONG <br>
+      Entry: ${entry.toFixed(2)} <br>
+      SL: ${sl.toFixed(2)} <br>
+      TP1: ${tp1.toFixed(2)} <br>
+      TP2: ${tp2.toFixed(2)}
+    `;
+  }
+
+  else if(signal === "SHORT"){
+    el.className = "signal short";
+
+    box.style.border = "2px solid red";
+    box.style.background = "rgba(255,0,0,0.2)";
+    box.innerHTML = `
+      🔴 SHORT <br>
+      Entry: ${entry.toFixed(2)} <br>
+      SL: ${sl.toFixed(2)} <br>
+      TP1: ${tp1.toFixed(2)} <br>
+      TP2: ${tp2.toFixed(2)}
+    `;
+  }
+
+  else {
+    el.className = "signal";
+    box.innerHTML = "WAIT";
+  }
+
+  info.innerHTML = `
+    Score: ${score}/5 <br>
+    RSI: ${lastRsi.toFixed(2)} <br>
+    BOS: ${bosUp ? "UP" : bosDown ? "DOWN" : "NONE"}
+  `;
+}
+
+setInterval(generateSignal, 10000);
+generateSignal();
+
 </script>
+
+</body>
+</html>

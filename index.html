@@ -213,3 +213,106 @@ async function generateSignal() {
 setInterval(generateSignal, 10000);
 generateSignal();
 </script>
+<script>
+async function getData() {
+  let res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=200");
+  let data = await res.json();
+  return data.map(c => parseFloat(c[4]));
+}
+
+function ema(prices, period) {
+  let k = 2 / (period + 1);
+  let emaArray = [prices[0]];
+  for (let i = 1; i < prices.length; i++) {
+    emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
+  }
+  return emaArray;
+}
+
+function rsi(prices, period = 14) {
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    let diff = prices[i] - prices[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  let rs = gains / losses;
+  return 100 - (100 / (1 + rs));
+}
+
+async function generateSignal() {
+  let prices = await getData();
+
+  let ema9 = ema(prices, 9);
+  let ema20 = ema(prices, 20);
+  let ema50 = ema(prices, 50);
+  let ema200 = ema(prices, 200);
+
+  let lastPrice = prices[prices.length - 1];
+  let lastEma9 = ema9[ema9.length - 1];
+  let lastEma20 = ema20[ema20.length - 1];
+  let lastEma50 = ema50[ema50.length - 1];
+  let lastEma200 = ema200[ema200.length - 1];
+
+  let lastRsi = rsi(prices);
+
+  let signal = "WAIT";
+  let score = 0;
+
+  // TREND
+  let trendUp = lastEma50 > lastEma200;
+  let trendDown = lastEma50 < lastEma200;
+
+  // MOMENTUM
+  let momentumUp = lastEma9 > lastEma20;
+  let momentumDown = lastEma9 < lastEma20;
+
+  // LONG
+  if (trendUp) score += 1;
+  if (momentumUp) score += 1;
+  if (lastPrice > lastEma50) score += 1;
+  if (lastRsi > 40 && lastRsi < 60) score += 1;
+
+  if (score >= 3) signal = "LONG";
+
+  // SHORT
+  score = 0;
+  if (trendDown) score += 1;
+  if (momentumDown) score += 1;
+  if (lastPrice < lastEma50) score += 1;
+  if (lastRsi > 40 && lastRsi < 60) score += 1;
+
+  if (score >= 3) signal = "SHORT";
+
+  // ENTRY / SL / TP
+  let entry = lastPrice;
+  let sl = signal === "LONG" ? entry * 0.98 : entry * 1.02;
+  let tp1 = signal === "LONG" ? entry * 1.02 : entry * 0.98;
+  let tp2 = signal === "LONG" ? entry * 1.04 : entry * 0.96;
+
+  let el = document.getElementById("signal");
+  let info = document.getElementById("info");
+
+  el.innerText = signal;
+
+  if(signal === "LONG"){
+    el.className = "signal long";
+  } else if(signal === "SHORT"){
+    el.className = "signal short";
+  } else {
+    el.className = "signal";
+  }
+
+  info.innerHTML = `
+    Score: ${score}/4 <br>
+    Entry: ${entry.toFixed(2)} <br>
+    SL: ${sl.toFixed(2)} <br>
+    TP1: ${tp1.toFixed(2)} <br>
+    TP2: ${tp2.toFixed(2)} <br>
+    RSI: ${lastRsi.toFixed(2)}
+  `;
+}
+
+setInterval(generateSignal, 10000);
+generateSignal();
+</script>

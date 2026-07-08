@@ -1,42 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-  <title>Trade AI</title>
-
+  <meta charset="UTF-8">
+  <title>Trade AI - Canlı Sinyal</title>
   <style>
-    body {
-      background: #0d1117;
-      color: white;
-      text-align: center;
-      font-family: Arial;
-      margin: 0;
-    }
+    body { background: #0d1117; color: white; text-align: center; font-family: 'Segoe UI', sans-serif; margin: 0; }
+    h1 { margin-top: 20px; color: #58a6ff; }
+    .signal { font-size: 50px; font-weight: bold; margin: 20px; padding: 20px; }
+    .wait { color: #888; }
+    .long { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+    .short { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
 
-    h1 { margin-top: 20px; }
-
-    .signal {
-      font-size: 40px;
-      margin: 20px;
-    }
-
-    .long { color: lime; }
-    .short { color: red; }
-
-    #chart {
-      position: relative;
-    }
-
-    /* 📦 POSITION BOX */
+    /* 📦 POZİSYON KUTUSU */
     #box {
-      position: absolute;
-      top: 120px;
-      left: 50%;
-      transform: translateX(-50%);
+      margin: 20px auto;
       width: 260px;
-      padding: 12px;
-      border-radius: 10px;
-      font-size: 14px;
-      z-index: 999;
+      padding: 15px;
+      border-radius: 12px;
+      border: 2px solid #333;
+      background: #161b22;
+      font-size: 16px;
       text-align: left;
     }
   </style>
@@ -44,182 +27,66 @@
 
 <body>
 
-<h1>🔥 Trade AI Signal V9</h1>
+<h1>🔥 Trade AI Live Monitor</h1>
 
-<div id="chart"></div>
+<div id="tradingview_widget"></div>
 
-<div class="signal" id="signal">WAIT</div>
+<div class="signal wait" id="signal-display">BEKLENİYOR...</div>
 
-<div id="info"></div>
-
-<div id="box">WAIT</div>
+<div id="box">Sistem izleniyor...</div>
 
 <script src="https://s3.tradingview.com/tv.js"></script>
-
 <script>
+  // 1. TradingView Widget
+  new TradingView.widget({
+    "container_id": "tradingview_widget",
+    "width": "100%", "height": 400,
+    "symbol": "BINANCE:BTCUSDT",
+    "interval": "15",
+    "theme": "dark",
+    "style": "1",
+    "locale": "tr"
+  });
 
-// 📊 TradingView
-new TradingView.widget({
-  "width": "100%",
-  "height": 500,
-  "symbol": "BINANCE:BTCUSDT",
-  "interval": "15",
-  "theme": "dark",
-  "style": "1",
-  "locale": "tr"
-});
+  // 2. FIREBASE BAĞLANTISI (Sitenin "beyni" burası)
+  // Buradaki URL'i kendi Firebase URL'inle değiştirdiğinden emin ol!
+  const FIREBASE_URL = "https://hnd-ai-default-rtdb.europe-west1.firebasebasedatabase.app/signal/status.json";
 
-// 📈 EMA
-function ema(prices, period) {
-  let k = 2 / (period + 1);
-  let emaArray = [prices[0]];
-  for (let i = 1; i < prices.length; i++) {
-    emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
-  }
-  return emaArray;
-}
-
-// 📉 RSI
-function rsi(prices, period = 14) {
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    let diff = prices[i] - prices[i - 1];
-    if (diff >= 0) gains += diff;
-    else losses -= diff;
-  }
-  let rs = gains / losses;
-  return 100 - (100 / (1 + rs));
-}
-
-// 🧠 STRUCTURE
-function getStructure(prices) {
-  let highs = [];
-  let lows = [];
-
-  for (let i = 2; i < prices.length - 2; i++) {
-    if (prices[i] > prices[i-1] && prices[i] > prices[i+1]) {
-      highs.push(prices[i]);
+  async function updateSignal() {
+    try {
+      const response = await fetch(FIREBASE_URL);
+      const data = await response.json();
+      
+      const el = document.getElementById("signal-display");
+      const box = document.getElementById("box");
+      
+      // Gelen veriye göre ekranı güncelle
+      if (data === "LONG") {
+        el.innerText = "LONG POZİSYON";
+        el.className = "signal long";
+        box.style.border = "2px solid #00ff00";
+        box.innerHTML = "🟢 <b>ALIM SİNYALİ</b><br>Durum: Aktif";
+      } 
+      else if (data === "SHORT") {
+        el.innerText = "SHORT POZİSYON";
+        el.className = "signal short";
+        box.style.border = "2px solid #ff0000";
+        box.innerHTML = "🔴 <b>SATIM SİNYALİ</b><br>Durum: Aktif";
+      } 
+      else {
+        el.innerText = "BEKLEMEDE (WAIT)";
+        el.className = "signal wait";
+        box.style.border = "2px solid #333";
+        box.innerHTML = "⏳ Sistem analiz yapıyor...";
+      }
+    } catch (e) {
+      console.error("Bağlantı hatası:", e);
     }
-    if (prices[i] < prices[i-1] && prices[i] < prices[i+1]) {
-      lows.push(prices[i]);
-    }
   }
 
-  return { highs, lows };
-}
-
-// 🚀 ANA SİSTEM
-async function generateSignal() {
-
-  let res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=200");
-  let data = await res.json();
-  let prices = data.map(c => parseFloat(c[4]));
-
-  let ema9 = ema(prices, 9);
-  let ema20 = ema(prices, 20);
-  let ema50 = ema(prices, 50);
-  let ema200 = ema(prices, 200);
-
-  let lastPrice = prices.at(-1);
-  let lastEma9 = ema9.at(-1);
-  let lastEma20 = ema20.at(-1);
-  let lastEma50 = ema50.at(-1);
-  let lastEma200 = ema200.at(-1);
-
-  let lastRsi = rsi(prices);
-
-  let structure = getStructure(prices);
-
-  let lastHigh = structure.highs.at(-1);
-  let prevHigh = structure.highs.at(-2);
-  let lastLow = structure.lows.at(-1);
-  let prevLow = structure.lows.at(-2);
-
-  let bosUp = lastHigh > prevHigh;
-  let bosDown = lastLow < prevLow;
-
-  let trendUp = lastEma50 > lastEma200;
-  let trendDown = lastEma50 < lastEma200;
-
-  let momentumUp = lastEma9 > lastEma20;
-  let momentumDown = lastEma9 < lastEma20;
-
-  let signal = "WAIT";
-  let score = 0;
-
-  // LONG
-  if (trendUp) score++;
-  if (momentumUp) score++;
-  if (lastPrice > lastEma50) score++;
-  if (lastRsi > 40 && lastRsi < 60) score++;
-  if (bosUp) score++;
-
-  if (score >= 4) signal = "LONG";
-
-  // SHORT
-  score = 0;
-  if (trendDown) score++;
-  if (momentumDown) score++;
-  if (lastPrice < lastEma50) score++;
-  if (lastRsi > 40 && lastRsi < 60) score++;
-  if (bosDown) score++;
-
-  if (score >= 4) signal = "SHORT";
-
-  let entry = lastPrice;
-  let sl = signal === "LONG" ? entry * 0.98 : entry * 1.02;
-  let tp1 = signal === "LONG" ? entry * 1.02 : entry * 0.98;
-  let tp2 = signal === "LONG" ? entry * 1.04 : entry * 0.96;
-
-  let el = document.getElementById("signal");
-  let info = document.getElementById("info");
-  let box = document.getElementById("box");
-
-  el.innerText = signal;
-
-  if(signal === "LONG"){
-    el.className = "signal long";
-
-    box.style.border = "2px solid lime";
-    box.style.background = "rgba(0,255,0,0.2)";
-    box.innerHTML = `
-      🟢 LONG <br>
-      Entry: ${entry.toFixed(2)} <br>
-      SL: ${sl.toFixed(2)} <br>
-      TP1: ${tp1.toFixed(2)} <br>
-      TP2: ${tp2.toFixed(2)}
-    `;
-  }
-
-  else if(signal === "SHORT"){
-    el.className = "signal short";
-
-    box.style.border = "2px solid red";
-    box.style.background = "rgba(255,0,0,0.2)";
-    box.innerHTML = `
-      🔴 SHORT <br>
-      Entry: ${entry.toFixed(2)} <br>
-      SL: ${sl.toFixed(2)} <br>
-      TP1: ${tp1.toFixed(2)} <br>
-      TP2: ${tp2.toFixed(2)}
-    `;
-  }
-
-  else {
-    el.className = "signal";
-    box.innerHTML = "WAIT";
-  }
-
-  info.innerHTML = `
-    Score: ${score}/5 <br>
-    RSI: ${lastRsi.toFixed(2)} <br>
-    BOS: ${bosUp ? "UP" : bosDown ? "DOWN" : "NONE"}
-  `;
-}
-
-setInterval(generateSignal, 10000);
-generateSignal();
-
+  // Her 3 saniyede bir Firebase'i kontrol et
+  setInterval(updateSignal, 3000);
+  updateSignal();
 </script>
 
 </body>

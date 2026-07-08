@@ -316,3 +316,20 @@ async function generateSignal() {
 setInterval(generateSignal, 10000);
 generateSignal();
 </script>
+<script>
+function getStructure(prices) {
+  let highs = [];
+  let lows = [];
+
+  for (let i = 2; i < prices.length - 2; i++) {
+    if (prices[i] > prices[i-1] && prices[i] > prices[i+1]) {
+      highs.push(prices[i]);
+    }
+    if (prices[i] < prices[i-1] && prices[i] < prices[i+1]) {
+      lows.push(prices[i]);
+    }
+  }
+
+  return { highs, lows };
+}
+</script>

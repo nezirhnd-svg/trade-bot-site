@@ -47,3 +47,20 @@ new TradingView.widget({
 
 </body>
 </html>
+<script>
+function randomSignal() {
+  let signal = Math.random() > 0.5 ? "LONG" : "SHORT";
+  let el = document.getElementById("signal");
+
+  el.innerText = signal;
+
+  if(signal === "LONG"){
+    el.className = "signal long";
+  } else {
+    el.className = "signal short";
+  }
+}
+
+// 3 saniyede bir değişsin
+setInterval(randomSignal, 3000);
+</script>

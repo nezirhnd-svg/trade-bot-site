@@ -62,5 +62,66 @@ function randomSignal() {
 }
 
 // 3 saniyede bir değişsin
-setInterval(randomSignal, 3000);
+
+</script>
+<script>
+async function getData() {
+  let res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=100");
+  let data = await res.json();
+  return data.map(c => parseFloat(c[4])); // kapanış fiyatı
+}
+
+function ema(prices, period) {
+  let k = 2 / (period + 1);
+  let emaArray = [prices[0]];
+  for (let i = 1; i < prices.length; i++) {
+    emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
+  }
+  return emaArray;
+}
+
+function rsi(prices, period = 14) {
+  let gains = 0, losses = 0;
+
+  for (let i = 1; i <= period; i++) {
+    let diff = prices[i] - prices[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+
+  let rs = gains / losses;
+  return 100 - (100 / (1 + rs));
+}
+
+async function generateSignal() {
+  let prices = await getData();
+
+  let ema50 = ema(prices, 50);
+  let lastPrice = prices[prices.length - 1];
+  let lastEma = ema50[ema50.length - 1];
+  let lastRsi = rsi(prices);
+
+  let signal = "WAIT";
+
+  if (lastPrice > lastEma && lastRsi < 30) {
+    signal = "LONG";
+  } else if (lastPrice < lastEma && lastRsi > 70) {
+    signal = "SHORT";
+  }
+
+  let el = document.getElementById("signal");
+  el.innerText = signal;
+
+  if(signal === "LONG"){
+    el.className = "signal long";
+  } else if(signal === "SHORT"){
+    el.className = "signal short";
+  } else {
+    el.className = "signal";
+  }
+}
+
+// her 10 saniyede güncelle
+setInterval(generateSignal, 10000);
+generateSignal();
 </script>
